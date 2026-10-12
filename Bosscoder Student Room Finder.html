@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bosscoder Room Finder</title>
+<style>
+:root{color-scheme:light dark;--bg:light-dark(#f4f6fb,#0d1320);--panel:light-dark(#fff,#151e2e);--ink:light-dark(#172033,#f2f5fb);--muted:light-dark(#647089,#a5b0c5);--line:light-dark(#e0e6ef,#2b374c);--accent:light-dark(#4f46e5,#a5a0ff);--soft:light-dark(#eef0ff,#252849)}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}#app{min-height:100vh;background:var(--bg)}header{padding:26px max(20px,calc((100% - 1150px)/2));background:linear-gradient(120deg,#22235d,#4f46e5);color:white}header .eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;opacity:.8}h1{margin:5px 0;font-size:clamp(25px,4vw,36px)}header p{margin:0;opacity:.85}.wrap{max-width:1150px;margin:auto;padding:24px 20px}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.stat,.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}.stat small,.muted{color:var(--muted)}.stat strong{display:block;font-size:26px;margin-top:4px}.layout{display:grid;grid-template-columns:1.1fr .9fr;gap:16px;margin-top:16px}.panel h2{font-size:18px;margin:0 0 12px}.field{display:flex;gap:8px;margin:12px 0}.field input,.field select,textarea{min-width:0;width:100%;border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--bg);color:var(--ink);font:inherit}button{border:0;border-radius:10px;background:var(--accent);color:white;padding:11px 15px;font:600 14px system-ui;cursor:pointer;white-space:nowrap}button.secondary{background:var(--soft);color:var(--ink);border:1px solid var(--line)}.result{margin-top:12px;padding:16px;border-radius:12px;background:var(--soft);display:none}.result strong{font-size:18px}.pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.pill{padding:5px 9px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font-size:12px}.rooms{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.room{padding:13px;border:1px solid var(--line);border-radius:12px}.room strong{display:block;font-size:16px}.bar{height:6px;background:var(--line);border-radius:99px;margin-top:10px;overflow:hidden}.bar span{display:block;height:100%;background:var(--accent)}textarea{min-height:120px;resize:vertical}.tablewrap{overflow:auto;max-height:350px;border:1px solid var(--line);border-radius:10px}table{border-collapse:collapse;width:100%;font-size:13px}th,td{text-align:left;padding:10px;border-bottom:1px solid var(--line);white-space:nowrap}th{position:sticky;top:0;background:var(--panel)}.note{font-size:12px;color:var(--muted);margin-top:10px}.notice{margin-top:12px;font-size:13px;color:var(--muted)}.full{margin-top:16px}@media(max-width:800px){.layout{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.rooms{grid-template-columns:1fr}}
+</style></head><body><div id="app"><header><div class="eyebrow">Bosscoder · Exam operations</div><h1>Student Room Finder</h1><p>Look up a roll number, find the assigned room and seat, and manage student records.</p></header><main class="wrap"><section class="stats"><div class="stat"><small>Student records</small><strong id="total">0</strong></div><div class="stat"><small>Examination rooms</small><strong>3</strong></div><div class="stat"><small>Assigned seats</small><strong id="assigned">0</strong></div><div class="stat"><small>Unassigned</small><strong id="unassigned">0</strong></div></section>
+<div class="layout"><section class="panel"><h2>Find a student's room</h2><div class="field"><input id="lookup" placeholder="Enter roll number or student name"><button id="find">Find student</button></div><div id="result" class="result"></div><p class="note">Room and seat assignments are generated from the student-list order. You can change room capacity below.</p></section><section class="panel"><h2>Room occupancy</h2><div class="rooms" id="rooms"></div><p class="note">Default capacity: 100 seats per room. Adjust capacities in settings.</p></section></div>
+<div class="layout"><section class="panel"><h2>Add a student</h2><div class="field"><input id="newRoll" placeholder="Roll number"><input id="newName" placeholder="Full name"></div><div class="field"><select id="newSection"><option>A</option><option>B</option><option>C</option></select><button id="add">Add student</button></div><div id="addMsg" class="notice" role="status"></div></section><section class="panel"><h2>Room settings</h2><div class="field"><label for="cap1">Room 1</label><input id="cap1" type="number" min="1" value="100"></div><div class="field"><label for="cap2">Room 2</label><input id="cap2" type="number" min="1" value="100"></div><div class="field"><label for="cap3">Room 3</label><input id="cap3" type="number" min="1" value="100"></div><button id="reassign">Recalculate seats</button><p class="note">Allocation is sequential: fill Room 1, then Room 2, then Room 3. Existing records are saved in this browser.</p></section></div>
+<section class="panel full"><h2>Import the supplied student list</h2><p class="muted">Paste the roll-number/name lines here (one student per line). The importer detects sections from roll-number ranges: A = 2392608001–2392608120, B = 2392608121–2392608235, C = 2392608236–2392608304. It also accepts the separate roll number 2381663199 as Section B.</p><textarea id="bulk" placeholder="2392608001 Ayush Chaudhary&#10;2392608002 Aditya Anil Soni"></textarea><div class="field"><button id="import">Import / update records</button><button class="secondary" id="export">Export CSV</button><button class="secondary" id="reset">Clear saved data</button></div><div id="importMsg" class="notice" role="status"></div><p class="note">Privacy and persistence: this prototype stores data in this browser's local storage, not on a shared server. Use a real backend/database for access across devices.</p></section>
+<section class="panel full"><h2>Student records <span class="muted" id="countLabel"></span></h2><div class="field"><input id="filter" placeholder="Filter records by roll number, name, or section"><button class="secondary" id="refresh">Refresh</button></div><div class="tablewrap"><table><thead><tr><th>Roll number</th><th>Student name</th><th>Section</th><th>Room</th><th>Seat</th><th></th></tr></thead><tbody id="tbody"></tbody></table></div></section></main></div>
+<script>
+/* Seed the supplied roster once, only when this browser has no saved roster yet. */
+(()=>{const KEY='bosscoder-room-finder-v1';if(localStorage.getItem(KEY)!==null)return;const raw=`2392608001|Ayush Chaudhary|A
+2392608002|Aditya Anil Soni|A
+2392608003|Shambhuraje Sachin Kendre|A
+2392608004|Anurag tiwari|A
+2392608005|Asbah Kamaal Khan|A
+2392608006|Srijan Halder|A
+2392608007|SHIVAM KUMAR GUPTA|A
+2392608008|priyansh singh|A
+2392608009|Raj Nandani|A
+2392608010|Avinash kumar|A
+2392608011|Devansh Bansal|A
+2392608012|Yash Amit Khemnani|A
+2392608013|Shivam Sachin Patil|A
+2392608014|Krishna Verma|A
+2392608015|SEEMAKURTHI KOUSHITHA|A
+2392608016|Jeevan Mahadev Durgale|A
+2392608017|Saksham Hada|A
+2392608018|Arpit Nitin Kolte|A
+2392608019|Sishant Saini|A
+2392608020|Chirag Maru|A
+2392608021|Md Kaif|A
+2392608022|Nur Alam Biswas|A
+2392608023|Kabir Chirag Muni|A
+2392608024|Deepraj Sharma|A
+2392608025|Akash Sekh|A
+2392608026|Sourabh Singh Shekhawat|A
+2392608027|Mayank Kumar|A
+2392608028|Punya Sharma|A
+2392608029|EKLAVYA SINHA|A
+2392608030|Shaswat Vibhu|A
+2392608031|Rajneesh Meena|A
+2392608032|MOHAMMED ASRAR AFZAL SAYED|A
+2392608033|Atharv Tyagi|A
+2392608034|Kartikey Kumawat|A
+2392608035|Siddharth Pawaria|A
+2392608036|Karthik Swamy|A
+2392608037|Suprojeet Choudhury|A
+2392608038|Ayushman Sharma|A
+2392608039|Preeti .|A
+2392608040|TANISHQ GOYAL|A
+2392608041|Moulishaa Dewangan|A
+2392608042|Syed Danish Rizwan|A
+2392608043|Sambhav Bohra|A
+2392608044|Prince Gupta|A
+2392608045|manish barala|A
+2392608046|Disha joshi|A
+2392608047|Akash Nand Sinha|A
+2392608048|Rohitash Jangir|A
+2392608049|Shubham Kumar Bahmaniya|A
+2392608050|Sayak Mitra Mitra|A
+2392608051|Viraj Bashishtha|A
+2392608052|Bhavya Bansal|A
+2392608053|Swapnil Chandrakant Shende|A
+2392608054|Rahul Kumar|A
+2392608055|Garv Agarwala|A
+2392608056|Pooja Chandrakar|A
+2392608057|Ranjan Kumar Sahu|A
+2392608058|Sachin Pal|A
+2392608059|Vashu Kushwaha|A
+2392608060|Naimaan Javeed|A
+2392608061|Rohit Tanaji Durgale|A
+2392608062|Aaravdeep Singh Dhillon|A
+2392608063|Shubham Maurya|A
+2392608064|Dhairya Khandelwal|A
+2392608065|Nivedhan reddy|A
+2392608066|ROHAN .|A
+2392608067|Aishik Roy|A
+2392608068|Shlok Agrahari|A
+2392608069|Aditya Ranjan|A
+2392608070|Abhinav Ramesh Bochare|A
+2392608071|Aditya kumar|A
+2392608072|Soumya Sarkar|A
+2392608073|Mukhiya Jaat|A
+2392608074|Vanshika|A
+2392608075|VINAY KHANDIA|A
+2392608076|A Prapthi Singh|A
+2392608077|Angel Goswami|A
+2392608078|Arsh Shukla|A
+2392608079|Akshita Rai|A
+2392608080|Simran Sagar Sethi|A
+2392608081|Mohammed Zaid|A
+2392608082|Ansh Raj|A
+2392608083|Mannat Verma|A
+2392608084|SAMRIDDHI RATHORE|A
+2392608085|Harshit Neog|A
+2392608086|Shriyam GUPTA|A
+2392608087|Sumit Sumit|A
+2392608088|HARINANDA V NAIR|A
+2392608089|Ravi Ranjan Sinha|A
+2392608090|Sumit Kumar|A
+2392608091|Harshwardhan Laxmanrao Bedaskar|A
+2392608092|Isha Bar|A
+2392608093|Utkarsh Chaudhary|A
+2392608094|Vivan Toshniwal|A
+2392608095|Aatman Shanker|A
+2392608096|Aarman Arzare|A
+2392608097|Manyam Srivastava|A
+2392608098|Akash Kumar M|A
+2392608099|SUSHANT SATISH PANGRE|A
+2392608100|Shaurya Tripathi|A
+2392608101|Kaif Ahmad Khan|A
+2392608102|Krushna Dnyaneshwar Porje|A
+2392608103|Yuvraj Vinayak Yedake|A
+2392608104|Romiljyoti Prakash|A
+2392608105|Suhaas N|A
+2392608106|BAMBHAROLIYA KIRTAN|A
+2392608107|Ritisha S|A
+2392608108|Ayushi Jain|A
+2392608109|Yugansh Gupta|A
+2392608110|Daksh Jain|A
+2392608111|MOHD FAIZ AZHER|A
+2392608112|Sheikh Niman Iqbal Niman Iqbal|A
+2392608113|Suman Shekhar|A
+2392608114|KHYATI GUPTA|A
+2392608115|MANTENA MOURYA RAGHAVA VARMA|A
+2392608116|Suryasarthi Sahoo|A
+2392608117|Shubhdeep Singh Bedi|A
+2392608118|CHANDAN GANTA|A
+2392608119|SIDDHIKA K|A
+2392608120|Kalpit Manoj Kshirsagar.|A
+2381663199|Munagala Naga Venkata Dinesh|B
+2392608121|Keerthana M|B
+2392608122|Mukund Ishwar Gokhale|B
+2392608123|Juneid Shaikh|B
+2392608124|Mayank Goyal|B
+2392608125|Harshit Vyas|B
+2392608126|Bharath Hanumanthu|B
+2392608127|Tanishka Jaiprakash Paunikar|B
+2392608128|Aryan SINGH|B
+2392608129|Dhruv Singla|B
+2392608130|Sameer Maurya|B
+2392608131|Trideep Chakraborty|B
+2392608132|Dennis Naresh khubchandani|B
+2392608133|Navya Gupta|B
+2392608134|Vipul Tiwari|B
+2392608135|Mayank Rajesh Khubchandani|B
+2392608136|Prithavi Chand|B
+2392608137|Soham S Karbotkar|B
+2392608138|Soham Saravade Saravade|B
+2392608139|Harshit Kumar|B
+2392608140|Mannat Agarwala|B
+2392608141|Jatin Alwani|B
+2392608142|Sujal Ganesh Nirgude|B
+2392608143|syed shaguftah mahnoor|B
+2392608144|Srushti Narendra Dolas|B
+2392608145|Mahima balaji dalve|B
+2392608146|VIKAS N|B
+2392608147|Mohd Shadab Ali|B
+2392608148|SOHAIL MOHAMMED KHATAL|B
+2392608149|Ananya Yadav|B
+2392608150|Somya Moonat Moonat|B
+2392608151|Hithesh TV|B
+2392608152|kRISHNA DHANORE|B
+2392608153|HARSH RAJ|B
+2392608154|Cherish Goyal|B
+2392608155|Simranjit Singh Bhatti|B
+2392608156|Harsh Sachin Tayde|B
+2392608157|Parth Sharma|B
+2392608158|Manas Mahesh Rawool|B
+2392608159|Naman pankaj Gupta|B
+2392608160|Vishwas Tiwari|B
+2392608161|Yashraj Gurejani|B
+2392608162|Arfad|B
+2392608163|Vijayendra Santosh Abbigeri|B
+2392608164|P.Dhruva kumar Sreeranjan|B
+2392608165|Harkeerat Kaur|B
+2392608166|Arnav Patel|B
+2392608167|Pratham Bansal|B
+2392608168|Sajan kumar|B
+2392608169|ABHYUDAY Narayan Vaishnav|B
+2392608170|soham ajit chavan|B
+2392608171|Abyudhay H A|B
+2392608172|PRANIT SITARAM RATHOD|B
+2392608173|Pari Vijay Javeri|B
+2392608174|Palak Sharma|B
+2392608175|Manvendra Pratap Singh Sikarwar|B
+2392608176|Nilay Raj|B
+2392608177|Sulaksh Avinash Parode|B
+2392608178|Neha V Dhagge|B
+2392608179|Shahib Alam Saifi|B
+2392608180|R Pranavv|B
+2392608181|Divyansh Raturi|B
+2392608182|Princy Suman|B
+2392608183|Amanat Loht|B
+2392608184|RAJ DAS|B
+2392608185|PRADYUMNA LOLUR|B
+2392608186|Rahul sahu|B
+2392608187|Sinjini Paul|B
+2392608188|Prince Raj|B
+2392608189|Sourasish Roy Choudhury|B
+2392608190|Shreyansh Raghawendra Baitpalli|B
+2392608191|BERNICE ALFIA RODRIGUES|B
+2392608192|Sayan Mondal|B
+2392608193|Amrit Raj|B
+2392608194|SHREYAS GONDKAR|B
+2392608195|akshada anil barde|B
+2392608196|Priyanshu Kumar Jha|B
+2392608197|Amrutanshu Satpathy|B
+2392608198|Haardik Singh|B
+2392608199|Shiva Ramakrishna Soudaboyena|B
+2392608200|Rudra Arvind Sawarkar|B
+2392608201|Harsh Sharma|B
+2392608202|Niharika N|B
+2392608203|Shaik Mohammad Kamil|B
+2392608204|Raj chauhan|B
+2392608205|SACHITA RAJSHEKHAR TORAGAL|B
+2392608206|Ishant ujjwal|B
+2392608207|Sanskriti Rai|B
+2392608208|Samriddhi Singh|B
+2392608209|Shreya R shreya|B
+2392608210|Mona Suresh Dayaramani|B
+2392608211|Om Kumar Sharma|B
+2392608212|AMEY BHANDI BASAVARAJ BHANDI|B
+2392608213|Trinayan Kumar Phukan|B
+2392608214|Harshit Yadav|B
+2392608215|Yashveer Bidla|B
+2392608216|Pranav Adithyaa s|B
+2392608217|Chiranth C R|B
+2392608218|Priyanshu Kashyap|B
+2392608219|Ankit Kumar|B
+2392608220|Samanpreet Kaur|B
+2392608221|ANUJ JAGDISH SOMANI|B
+2392608222|Nikhil Lokesh Das|B
+2392608223|Harshit Sharma|B
+2392608224|Varshita A S|B
+2392608225|Aryan Dipakbhai Patel|B
+2392608226|Dishin Dharsandia|B
+2392608227|Maanya Ashchary|B
+2392608228|SAHIL NISHAD|B
+2392608229|Vivek Raut|B
+2392608230|Pranav Kumar|B
+2392608231|tammineni krishna manohar|B
+2392608233|Hariom Shashikumar Pandey|B
+2392608234|advik gupta advik gupta|B
+2392608235|Harini S.|B
+2392608236|Uttkarsh Aditya|C
+2392608237|Ziyad Azmat Parkar|C
+2392608238|Parinita G|C
+2392608239|yamini vishnu bele|C
+2392608240|RACHIT B ANGADI|C
+2392608241|PRANEET BASU|C
+2392608242|Khushboo .|C
+2392608243|Aarav Kuri|C
+2392608244|SUMEDHA GHOSH|C
+2392608245|Krishna Vidhyarthi|C
+2392608246|Alfaiz Ashpak Khatik|C
+2392608247|Abdul wahhab Abdul karim Shaikh|C
+2392608248|Anushka Madhukar Pawar|C
+2392608249|Sanchit Sagar Rasal|C
+2392608250|Somchand Ramkuwar Ratangwal|C
+2392608251|HITAKSHI PRASHANTKUMAR PATEL|C
+2392608252|Aarush Trimbakwade|C
+2392608253|Shubham Srivastava|C
+2392608254|Hridyanshu Patnayak|C
+2392608255|Arjun Sharma|C
+2392608256|Satva Rajesh Joshi|C
+2392608257|DIKSHA DIKSHA|C
+2392608258|Krishna Sai Mukund Bandlamudi|C
+2392608259|Nikhil Kushwah|C
+2392608260|Bikkasani Sneha Sravanth Ashok|C
+2392608261|Viraj Dadasaheb Wakure|C
+2392608262|Rithvik Gopinath|C
+2392608263|Aakruthi Shiva|C
+2392608264|Rishi Sachin Vispute|C
+2392608265|Koushik Sanapala|C
+2392608266|gajaditya singh rathore|C
+2392608267|yash bhimrao rathod|C
+2392608268|AVISHKAR ARVIND RATHOD|C
+2392608269|Lakshmi Teja Thotla|C
+2392608270|Mohd Faiz Ansari|C
+2392608271|Prince Aklecha|C
+2392608272|venkata keerthan A|C
+2392608273|Aishwarya subhash chawan|C
+2392608274|Chetna Saran|C
+2392608275|Vidhi Panchariya|C
+2392608276|Suryansh Singh Singh|C
+2392608277|Aditya Shailesh Munge|C
+2392608278|Shagun Sagar|C
+2392608279|Umar Farooq Umar Farooq|C
+2392608280|Chakravarthi yasam|C
+2392608281|Tanmay Daga|C
+2392608282|Dipanshi Singh|C
+2392608283|Deepak Sonkar Sonkar Sonkar|C
+2392608284|Akshaj Lakshmi Vadlamani|C
+2392608285|Darshan Vinod Katkar|C
+2392608286|Himalaya Raj Singh|C
+2392608287|Sai Prashant Surve|C
+2392608288|MUHAMMADRAZIN ABDULKHUDDUS SHAIKH|C
+2392608289|Lokesh V Lokesh|C
+2392608290|Nit Devanand Ahangare|C
+2392608291|Sajidali Walikar|C
+2392608292|Raksha L M|C
+2392608293|Aman Verma|C
+2392608294|Amrita Yadav Amrita Yadav|C
+2392608295|Dibakar Das|C
+2392608296|Ayush Kumar|C
+2392608297|Sidharth Damodar M|C
+2392608298|Roshan Kumar Pradhan|C
+2392608299|Omkar Suryakant Gunge|C
+2392608300|Alwaz Hussain|C
+2392608301|Yaswant Manisi|C
+2392608302|Piyush Gupta|C
+2392608303|Shreya Rawat|C
+2392608304|Sanskriti Shaw|C`;const records=raw.split('\n').map(line=>{const [roll,...rest]=line.split('|');const section=rest.pop();return{roll,name:rest.join('|'),section}});['cap1','cap2','cap3'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=110});localStorage.setItem(KEY,JSON.stringify(records));})();
+/* Add the operations panels only after confirming the main page elements exist. */
+(()=>{if(!document.querySelector('header')||!document.querySelector('.stats'))return;const style=document.createElement('style');style.textContent='.opsbar{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}.opsgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:16px}.ops-card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;min-width:0}.ops-card h2{font-size:18px;margin:0 0 10px}.ops-card input,.ops-card select{width:100%;min-width:0;border:1px solid var(--line);border-radius:10px;padding:11px;background:var(--bg);color:var(--ink);font:inherit;margin:5px 0 9px}.ops-card .ops-row{display:grid;grid-template-columns:1fr 1fr;gap:9px}.ops-card .answer{padding:12px;background:var(--soft);border-radius:10px;margin-top:9px;min-height:42px;overflow-wrap:anywhere}.ops-card .subtle{font-size:12px;color:var(--muted)}.dark-on{background:#101827;color:#f3f6ff}@media(max-width:800px){.opsgrid{grid-template-columns:1fr}}';document.head.appendChild(style);const toggle=document.createElement('button');toggle.id='darkToggle';toggle.className='secondary';toggle.textContent='☾ Dark mode';const bar=document.createElement('div');bar.className='opsbar';bar.appendChild(toggle);document.querySelector('header').appendChild(bar);const section=document.createElement('section');section.className='opsgrid';section.innerHTML='<div class="ops-card"><h2>Invigilator portal</h2><p class="subtle">Enter your name to view the assigned room and duty checklist.</p><input id="invName" placeholder="Invigilator full name"><div class="ops-row"><select id="invRole"><option>Lead invigilator</option><option>Room invigilator</option><option>Relief invigilator</option></select><button id="invCheck">View duty</button></div><div class="answer" id="invAnswer">Your room and duty instructions appear here.</div></div><div class="ops-card"><h2>AI exam assistant</h2><p class="subtle">Ask about student lookup, room allocation, seats, or exam duties.</p><input id="aiQuestion" placeholder="How do I find a student seat?"><button id="aiAsk">Ask assistant</button><div class="answer" id="aiAnswer">Ask me about the tools on this page.</div></div><div class="ops-card"><h2>Edit student record</h2><p class="subtle">Update a record by roll number.</p><input id="editRoll" placeholder="Existing roll number"><input id="editName" placeholder="Updated full name"><select id="editSection"><option>A</option><option>B</option><option>C</option></select><button id="editSave">Save student changes</button><div class="subtle" id="editMsg" role="status"></div></div><div class="ops-card"><h2>Allocation policy</h2><p>Students are assigned to the room with the lowest current occupancy, while respecting the capacity of each room.</p><p class="subtle">Data is saved in this browser and is not synchronized across devices.</p></div>';document.querySelector('.stats').before(section);})();
+const KEY='bosscoder-room-finder-v1';let students=[];const $=id=>document.getElementById(id);const caps=()=>[1,2,3].map(n=>Math.max(1,Number($('cap'+n).value)||100));
+function sectionFor(r){if(r==='2381663199')return'B';let n=Number(r);return n>=2392608001&&n<=2392608120?'A':n>=2392608121&&n<=2392608235?'B':n>=2392608236&&n<=2392608304?'C':'Unassigned'}
+function load(){try{students=JSON.parse(localStorage.getItem(KEY)||'[]')}catch{students=[]}assign();render()}
+function save(){localStorage.setItem(KEY,JSON.stringify(students))}
+function assign(){let limits=caps(),counts=[0,0,0];students.forEach(s=>{let available=[0,1,2].filter(i=>counts[i]<limits[i]).sort((a,b)=>counts[a]-counts[b]||a-b);if(!available.length){s.room='';s.seat='';return}let room=available[0];counts[room]++;s.room=room+1;s.seat=counts[room]});save()}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function render(){let count=students.length,assigned=students.filter(s=>s.room).length;$('total').textContent=count;$('assigned').textContent=assigned;$('unassigned').textContent=count-assigned;$('rooms').innerHTML=[1,2,3].map(n=>{let list=students.filter(s=>s.room===n),cap=caps()[n-1];return `<div class="room"><small>ROOM ${n}</small><strong>${list.length} / ${cap}</strong><div class="muted">${cap-list.length} seats remaining</div><div class="bar"><span style="width:${Math.min(100,list.length/cap*100)}%"></span></div></div>`}).join('');let f=$('filter').value.toLowerCase().trim(),filtered=students.filter(s=>`${s.roll} ${s.name} ${s.section}`.toLowerCase().includes(f));$('countLabel').textContent=`(${filtered.length})`;$('tbody').innerHTML=filtered.slice(0,500).map(s=>`<tr><td>${esc(s.roll)}</td><td>${esc(s.name)}</td><td>${esc(s.section)}</td><td>${s.room?'Room '+s.room:'Not assigned'}</td><td>${s.seat||'—'}</td><td><button class="secondary" onclick="removeStudent('${esc(s.roll)}')">Delete</button></td></tr>`).join('');}
+function lookup(){let q=$('lookup').value.trim().toLowerCase(),found=students.find(s=>s.roll.toLowerCase()===q)||students.find(s=>s.name.toLowerCase().includes(q));let el=$('result');el.style.display='block';el.innerHTML=!q?'<strong>Enter a roll number or name.</strong>':!found?'<strong>No matching student found.</strong><p class="muted">Check the roll number or add/import the student record.</p>':`<strong>${esc(found.name)}</strong><div class="pills"><span class="pill">Roll: ${esc(found.roll)}</span><span class="pill">Section ${esc(found.section)}</span><span class="pill">${found.room?'Room '+found.room:'No room available'}</span><span class="pill">${found.seat?'Seat '+found.seat:'No seat assigned'}</span></div>`}
+function removeStudent(roll){if(confirm('Delete student '+roll+'?')){students=students.filter(s=>s.roll!==roll);assign();render()}}
+$('find').onclick=lookup;$('lookup').addEventListener('keydown',e=>{if(e.key==='Enter')lookup()});$('add').onclick=()=>{let roll=$('newRoll').value.trim(),name=$('newName').value.trim(),section=$('newSection').value;if(!roll||!name){$('addMsg').textContent='Enter both roll number and full name.';return}if(students.some(s=>s.roll===roll)){$('addMsg').textContent='That roll number already exists.';return}students.push({roll,name,section});assign();render();$('addMsg').textContent='Student added and room/seat assigned.';$('newRoll').value='';$('newName').value=''};
+$('reassign').onclick=()=>{assign();render();$('importMsg').textContent='Room assignments recalculated.'};$('refresh').onclick=render;$('filter').oninput=render;
+$('import').onclick=()=>{let lines=$('bulk').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean),map=new Map(students.map(s=>[s.roll,s]));let added=0,updated=0,skipped=0;for(let line of lines){let m=line.match(/^(\d{10})\s*[\t, ]+(.+?)\s*$/);if(!m){skipped++;continue}let roll=m[1],name=m[2].trim().replace(/[\t ]+/g,' ');if(!name){skipped++;continue}let section=sectionFor(roll);if(map.has(roll)){map.set(roll,{...map.get(roll),name,section});updated++}else{map.set(roll,{roll,name,section});added++}}students=[...map.values()].sort((a,b)=>a.roll.localeCompare(b.roll));assign();render();$('importMsg').textContent=`Import complete: ${added} added, ${updated} updated, ${skipped} line(s) skipped. Verify the record count.`};
+$('export').onclick=()=>{let rows=[['Roll number','Name','Section','Room','Seat'],...students.map(s=>[s.roll,s.name,s.section,s.room?'Room '+s.room:'',s.seat||''])];let csv=rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\r\n');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='bosscoder-students.csv';a.click();URL.revokeObjectURL(a.href)};
+$('reset').onclick=()=>{if(confirm('Clear all student records saved in this browser?')){students=[];save();render();$('importMsg').textContent='Saved records cleared.'}};
+load();
+/* Navigation, prototype email sign-in, retention controls, and a unified invigilator lookup. */
+(()=>{const $=id=>document.getElementById(id);const nav=document.createElement('nav');nav.id='mainNav';nav.innerHTML='<a href="#top">Home</a><a href="#studentLookup">Student lookup</a><a href="#studentRecords">Student records</a><a href="#examTools">Exam schedule</a><a href="#invigilatorArea">Invigilator portal</a><a href="#accountArea">Student login</a><a href="#retentionArea">Data retention</a>';const st=document.createElement('style');st.textContent='#mainNav{position:sticky;top:0;z-index:20;display:flex;gap:8px;flex-wrap:wrap;padding:10px max(16px,calc((100% - 1150px)/2));background:var(--panel);border-bottom:1px solid var(--line);box-shadow:0 3px 12px #0001}#mainNav a{color:var(--ink);text-decoration:none;padding:7px 10px;border-radius:8px;font-size:13px;font-weight:600}#mainNav a:hover{background:var(--soft)}.account-panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:16px}.account-panel input,.account-panel select{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px;margin:5px 0 9px;background:var(--bg);color:var(--ink);font:inherit}.account-panel .hint{font-size:12px;color:var(--muted)}.account-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}@media(max-width:700px){.account-grid{grid-template-columns:1fr}#mainNav{position:relative}}';document.head.appendChild(st);document.querySelector('header').id='top';document.querySelector('header').after(nav);const lookupPanel=document.querySelector('#lookup')?.closest('.panel');if(lookupPanel)lookupPanel.id='studentLookup';const records=document.querySelector('#tbody')?.closest('.panel');if(records)records.id='studentRecords';const exam=document.querySelector('.examgrid');if(exam)exam.id='examTools';const ops=document.querySelector('.opsgrid');if(ops){const inv=ops.querySelector('.ops-card');if(inv)inv.id='invigilatorArea'}const account=document.createElement('section');account.className='account-panel';account.id='accountArea';account.innerHTML='<h2>Student login</h2><p class="hint">Sign in with your college email address to start a student session.</p><label for="studentEmailLogin">College email</label><input id="studentEmailLogin" type="email" placeholder="you@college.edu"><button id="emailLoginButton">Continue with email</button> <button class="secondary" id="emailLogoutButton" style="display:none">Sign out</button><div id="emailLoginStatus" class="hint" role="status">Not signed in.</div><p class="hint">Demo limitation: this prototype checks email format only. Real email verification, passwordless links, and role-based access require university SSO or a secure authentication backend.</p>';const retention=document.createElement('section');retention.className='account-panel';retention.id='retentionArea';retention.innerHTML='<h2>University data retention (administrator)</h2><p class="hint">Set how long this prototype keeps records in this browser. When the deadline passes, saved student, exam, teacher-duty and invigilator data will be cleared on the next visit.</p><label for="retentionDays">Keep data for</label><select id="retentionDays"><option value="30">30 days</option><option value="90">90 days</option><option value="180" selected>180 days</option><option value="365">365 days</option></select><button id="applyRetention">Apply retention period</button> <button class="secondary" id="clearUniversityData">Delete university data now</button><div id="retentionStatus" class="hint" role="status"></div><p class="hint">Important: automatic deletion here is browser-local and only runs when this page is opened. A production university system needs server-side scheduled deletion, backups/retention controls, audit logs, and an approved institutional data-retention policy.</p>';const wrap=document.querySelector('main.wrap');wrap.append(account,retention);const STUDENT_SESSION='bosscoder-student-email-session',RETENTION='bosscoder-university-retention';function clearLocalUniversityData(){localStorage.setItem(KEY,'[]');['bosscoder-exam-schedules-v1','bosscoder-exam-teacher-duties-v1','bosscoder-invigilators-v1','bosscoder-student-email-session','bosscoder-university-retention'].forEach(k=>localStorage.removeItem(k));students=[];render();if($('examList')){ $('examList').textContent='No exam schedules saved yet.';$('examAdminResult').textContent='No exam schedules saved yet.';$('teacherDutyResult').textContent='University data was cleared.'}if($('invAnswer'))$('invAnswer').textContent='University data was cleared. No duty assignment is currently saved.';$('emailLoginStatus').textContent='University data was deleted. You are signed out.';$('emailLogoutButton').style.display='none';$('retentionStatus').textContent='Local university data cleared.'}function enforceRetention(){let p;try{p=JSON.parse(localStorage.getItem(RETENTION)||'null')}catch{}if(p&&p.expiresAt&&Date.now()>=p.expiresAt){clearLocalUniversityData();$('retentionStatus').textContent='Retention deadline passed. Local data has been deleted.'}else if(p&&p.expiresAt){$('retentionStatus').textContent='Current retention deadline: '+new Date(p.expiresAt).toLocaleString()}}enforceRetention();function showSession(){let email=localStorage.getItem(STUDENT_SESSION);$('emailLoginStatus').textContent=email?'Signed in for this browser as '+email+'. This is a demo session, not verified identity.':'Not signed in.';$('emailLogoutButton').style.display=email?'inline-block':'none'}$('emailLoginButton').onclick=()=>{let email=$('studentEmailLogin').value.trim().toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){$('emailLoginStatus').textContent='Enter a valid email address.';return}localStorage.setItem(STUDENT_SESSION,email);showSession()};$('emailLogoutButton').onclick=()=>{localStorage.removeItem(STUDENT_SESSION);showSession()};showSession();$('applyRetention').onclick=()=>{let days=Number($('retentionDays').value);let p={days,createdAt:Date.now(),expiresAt:Date.now()+days*86400000};localStorage.setItem(RETENTION,JSON.stringify(p));$('retentionStatus').textContent='Retention applied. Local data will be cleared after '+new Date(p.expiresAt).toLocaleString()+', on the next visit.'};$('clearUniversityData').onclick=()=>{if(confirm('Delete all university records saved in this browser? This cannot be undone.'))clearLocalUniversityData()};
+/* Make the invigilator portal read the same assignments created by the exam-duty planner. */
+if($('invCheck'))$('invCheck').onclick=()=>{let name=$('invName').value.trim();if(!name){$('invAnswer').textContent='Enter your full name to check your duty.';return}let target=name.toLowerCase(),all={};try{all=JSON.parse(localStorage.getItem('bosscoder-exam-teacher-duties-v1')||'{}')}catch{}let matches=[];Object.entries(all).forEach(([k,list])=>(Array.isArray(list)?list:[]).forEach(t=>{if(String(t.name||'').trim().toLowerCase()===target)matches.push({key:k,...t})}));let legacy={};try{legacy=JSON.parse(localStorage.getItem('bosscoder-invigilators-v1')||'{}')}catch{}if(!matches.length&&legacy[target])matches.push({key:'Existing assignment',...legacy[target]});$('invAnswer').innerHTML=matches.length?'<strong>'+esc(name)+'</strong>'+matches.map(t=>'<p><b>Exam:</b> '+esc(t.key)+'<br><b>Room:</b> Room '+esc(t.room)+'<br><b>Duty:</b> '+esc(t.role||$('invRole').value)+'</p><p>Verify student IDs, mark attendance, maintain exam-room discipline, report incidents, and submit attendance sheets.</p>').join(''):'No assignment found for this name. Save the exam schedule first, then enter the teacher name in “Available teachers” and allocate duties for that exam date.'};})();
+/* Portal interactions */
+if($('darkToggle')){$('darkToggle').onclick=()=>{document.body.classList.toggle('dark-on');let on=document.body.classList.contains('dark-on');document.documentElement.style.colorScheme=on?'dark':'light';$('darkToggle').textContent=on?'☀ Light mode':'☾ Dark mode';localStorage.setItem('bosscoder-room-dark',on?'1':'0')};if(localStorage.getItem('bosscoder-room-dark')==='1')$('darkToggle').click()}
+$('editSave').onclick=()=>{let roll=$('editRoll').value.trim(),name=$('editName').value.trim(),section=$('editSection').value,record=students.find(s=>s.roll===roll);if(!record){$('editMsg').textContent='Roll number not found. Check the number and try again.';return}if(!name){$('editMsg').textContent='Enter the updated student name.';return}record.name=name;record.section=section;assign();render();$('editMsg').textContent='Student record updated and saved.'};
+$('invCheck').onclick=()=>{let name=$('invName').value.trim(),role=$('invRole').value;if(!name){$('invAnswer').textContent='Please enter your full name first.';return}let key='bosscoder-invigilators-v1',duties=JSON.parse(localStorage.getItem(key)||'{}'),entry=duties[name.toLowerCase()]||null;if(entry){$('invAnswer').innerHTML='<strong>'+esc(name)+'</strong><p>Assigned room: Room '+esc(entry.room)+'</p><p>Role: '+esc(role)+'</p><p>Check attendance, verify student IDs, maintain silence, report incidents, and submit the attendance sheet.</p>'}else{$('invAnswer').textContent='No room assignment is registered for '+name+'. An administrator must add the invigilator assignment before this portal can confirm a room. General duties: verify IDs, check attendance, maintain exam rules, and report incidents.'}};
+$('aiAsk').onclick=()=>{let q=$('aiQuestion').value.trim().toLowerCase(),answer;if(!q)answer='Type a question to get started.';else if(q.includes('seat')||q.includes('roll')||q.includes('find')||q.includes('search'))answer='Use “Find a student’s room” and enter the exact roll number for the most accurate match. The result shows room, seat, and section.';else if(q.includes('add')||q.includes('edit')||q.includes('update'))answer='Use “Add a student” for a new roll number. To change an existing record, enter the roll number in “Edit student record”, update the name and section, then save.';else if(q.includes('room')||q.includes('allocation')||q.includes('capacity'))answer='The allocator fills the room with the lowest current occupancy first and respects each room’s capacity. Adjust room capacities in Room settings, then select Recalculate seats.';else if(q.includes('invigilator')||q.includes('duty')||q.includes('exam'))answer='Invigilators should verify student IDs, mark attendance, maintain exam-room discipline, report incidents, and submit attendance sheets. Room assignments must be registered by an administrator.';else if(q.includes('save')||q.includes('data')||q.includes('persist'))answer='Student data is saved automatically in this browser’s local storage. It stays on this browser, but does not sync to another device or user account.';else answer='I can help with student search, roll numbers, room and seat allocation, adding/editing records, room capacity, and exam invigilator duties. Ask about one of these topics.';$('aiAnswer').textContent=answer};
+$('aiQuestion').addEventListener('keydown',e=>{if(e.key==='Enter')$('aiAsk').click()});
+/* Exam-day planning: local-browser prototype for schedules, rotating seats, and teacher duties. */
+(()=>{const css=document.createElement('style');css.textContent='.examgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:16px}.exam-card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;min-width:0}.exam-card h2{font-size:18px;margin:0 0 10px}.exam-card input,.exam-card select,.exam-card textarea{width:100%;min-width:0;border:1px solid var(--line);border-radius:10px;padding:11px;margin:5px 0 9px;background:var(--bg);color:var(--ink);font:inherit}.exam-card textarea{min-height:75px}.exam-card .exam-result{background:var(--soft);border-radius:10px;padding:12px;margin-top:10px;overflow-wrap:anywhere}.exam-card .exam-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}@media(max-width:800px){.examgrid{grid-template-columns:1fr}}';document.head.appendChild(css);const grid=document.createElement('section');grid.className='examgrid';grid.innerHTML='<div class="exam-card"><h2>Exam-day setup & teacher duty</h2><p class="muted">Enter teachers available for this exam. They will be distributed across the three rooms.</p><label for="dutyDate">Exam date</label><input id="dutyDate" type="date"><label for="teachersAvailable">Available teachers (one full name per line)</label><textarea id="teachersAvailable" placeholder="Teacher name 1&#10;Teacher name 2&#10;Teacher name 3"></textarea><button id="allocateTeachers">Allocate teacher duties</button><div class="exam-result" id="teacherDutyResult">Teacher room assignments will appear here.</div></div><div class="exam-card"><h2>Publish an exam schedule</h2><p class="muted">Save the subject, date, timing and instructions students should see.</p><label for="examDate">Exam date</label><input id="examDate" type="date"><label for="examSubject">Subject / exam name</label><input id="examSubject" placeholder="e.g. Java CIA 2"><div class="exam-row"><div><label for="examStart">Start time</label><input id="examStart" type="time"></div><div><label for="examEnd">End time</label><input id="examEnd" type="time"></div></div><label for="examInstructions">Instructions</label><textarea id="examInstructions">Bring your college ID and arrive before the exam starts. Mobile phones and unauthorized materials are not allowed. Cheating or use of unfair means may lead to disciplinary action under college examination rules.</textarea><button id="saveExam">Save exam schedule</button><div class="exam-result" id="examAdminResult">Saved schedules will be listed here.</div></div><div class="exam-card"><h2>Student exam-day information</h2><p class="muted">Students enter their roll number and choose the exam date to view the subject, timing, instructions, room and seat.</p><label for="studentExamRoll">Student roll number</label><input id="studentExamRoll" placeholder="Enter roll number"><label for="studentExamDate">Exam date</label><input id="studentExamDate" type="date"><button id="findStudentExam">View my exam details</button><div class="exam-result" id="studentExamResult">Your exam details will appear here after the schedule is published.</div></div><div class="exam-card"><h2>Saved exam schedules</h2><p class="muted">Choose a schedule to check the assigned teachers and seat plan. Each scheduled exam gets a rotated seat allocation.</p><div id="examList" class="exam-result">No exam schedules saved yet.</div><p class="subtle">Prototype notice: information is saved in this browser only; it is not yet shared with students or teachers on other devices.</p></div>';document.querySelector('main.wrap').appendChild(grid);const EXAMS='bosscoder-exam-schedules-v1',DUTIES='bosscoder-exam-teacher-duties-v1';const read=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key)||JSON.stringify(fallback))}catch{return fallback}};let exams=read(EXAMS,[]),duties=read(DUTIES,{});const escExam=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const examKey=(date,subject)=>date+'|'+subject.trim().toLowerCase();function saveExams(){localStorage.setItem(EXAMS,JSON.stringify(exams))}function seatFor(student,exam){let ordered=[...students].sort((a,b)=>a.roll.localeCompare(b.roll)),idx=ordered.findIndex(s=>s.roll===student.roll);if(idx<0)return null;let offset=Math.abs((exam.date+exam.subject).split('').reduce((n,c)=>n+c.charCodeAt(0),0))%Math.max(1,ordered.length);let rotated=(idx+offset)%ordered.length,limits=caps(),room=1,seat=rotated+1;for(let i=0;i<3;i++){if(seat<=limits[i]){room=i+1;break}seat-=limits[i];room=i+2}if(room>3||seat>limits[room-1])return null;return{room,seat}}function renderExams(){if(!$('examList'))return;$('examAdminResult').innerHTML=exams.length?exams.map(e=>'<p><strong>'+escExam(e.subject)+'</strong><br>'+escExam(e.date)+' · '+escExam(e.start)+'–'+escExam(e.end)+'</p>').join(''):'No exam schedules saved yet.';$('examList').innerHTML=exams.length?exams.map((e,i)=>{let k=examKey(e.date,e.subject),assigned=duties[k]||[];return '<p><strong>'+escExam(e.subject)+'</strong><br>'+escExam(e.date)+' · '+escExam(e.start)+'–'+escExam(e.end)+'<br>'+escExam(assigned.length)+' teacher(s) assigned<br><button class="secondary" data-exam-index="'+i+'">View seat plan</button><div id="seatPlan'+i+'"></div></p>'}).join(''):'No exam schedules saved yet.';document.querySelectorAll('[data-exam-index]').forEach(btn=>btn.onclick=()=>{let e=exams[Number(btn.dataset.examIndex)],k=examKey(e.date,e.subject),assigned=duties[k]||[];let rows=students.map(s=>{let p=seatFor(s,e);return '<tr><td>'+escExam(s.roll)+'</td><td>'+escExam(s.name)+'</td><td>'+(p?'Room '+p.room:'Unassigned')+'</td><td>'+(p?'Seat '+p.seat:'—')+'</td></tr>'}).join('');$('seatPlan'+btn.dataset.examIndex).innerHTML='<p>Teacher duty: '+(assigned.length?assigned.map(t=>escExam(t.name)+' — Room '+t.room+' ('+escExam(t.role)+')').join('; '):'No teachers allocated yet')+'</p><div class="tablewrap"><table><thead><tr><th>Roll</th><th>Name</th><th>Room</th><th>Seat</th></tr></thead><tbody>'+rows+'</tbody></table></div>'})}function allocateTeacherDuties(){let date=$('dutyDate').value,names=$('teachersAvailable').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);if(!date){$('teacherDutyResult').textContent='Please select the exam date.';return}if(!names.length){$('teacherDutyResult').textContent='Enter at least one available teacher name.';return}let sameDate=exams.filter(e=>e.date===date),exam=sameDate.find(e=>e.subject)||{date,subject:'Exam duty'};let k=examKey(exam.date,exam.subject),allocated=names.map((name,i)=>({name,room:(i%3)+1,role:i<3?'Room invigilator':'Relief invigilator'}));duties[k]=allocated;localStorage.setItem(DUTIES,JSON.stringify(duties));$('teacherDutyResult').innerHTML=allocated.map(t=>'<p><strong>'+escExam(t.name)+'</strong> — Room '+t.room+' · '+escExam(t.role)+'</p>').join('')+'<p class="subtle">For multiple exams on this date, create/save each exam first and allocate duties while the corresponding schedule is selected below.</p>';renderExams()}$('allocateTeachers').onclick=allocateTeacherDuties;$('saveExam').onclick=()=>{let date=$('examDate').value,subject=$('examSubject').value.trim(),start=$('examStart').value,end=$('examEnd').value,instructions=$('examInstructions').value.trim();if(!date||!subject||!start||!end){$('examAdminResult').textContent='Please enter the date, subject, start time and end time.';return}if(end<=start){$('examAdminResult').textContent='End time must be later than start time.';return}let existing=exams.findIndex(e=>e.date===date&&e.subject.toLowerCase()===subject.toLowerCase()),entry={date,subject,start,end,instructions};if(existing>=0)exams[existing]=entry;else exams.push(entry);exams.sort((a,b)=>(a.date+a.start).localeCompare(b.date+b.start));saveExams();renderExams();$('examAdminResult').textContent='Exam schedule saved. Students can look it up on this browser.'};$('findStudentExam').onclick=()=>{let roll=$('studentExamRoll').value.trim(),date=$('studentExamDate').value,student=students.find(s=>s.roll===roll);if(!roll||!date){$('studentExamResult').textContent='Enter your roll number and exam date.';return}if(!student){$('studentExamResult').textContent='Roll number not found. Check with the exam administrator.';return}let todays=exams.filter(e=>e.date===date);if(!todays.length){$('studentExamResult').textContent='No exam schedule is published for this date yet.';return}$('studentExamResult').innerHTML='<strong>'+escExam(student.name)+' · '+escExam(student.roll)+'</strong>'+todays.map(e=>{let p=seatFor(student,e);return '<hr><p><strong>'+escExam(e.subject)+'</strong><br>Date: '+escExam(e.date)+'<br>Timing: '+escExam(e.start)+'–'+escExam(e.end)+'<br>Room: '+(p?'Room '+p.room:'Not assigned')+'<br>Seat: '+(p?'Seat '+p.seat:'Not assigned')+'</p><p>'+escExam(e.instructions)+'</p>'}).join('')};renderExams()})();
+/* Manual teacher allocation: configurable room staffing and individual roles. */
+(()=>{const $=id=>document.getElementById(id);const grid=document.querySelector('.examgrid');if(!grid)return;const card=document.createElement('div');card.className='exam-card';card.id='manualTeacherAllocation';card.innerHTML='<h2>Manual teacher & relief allocation</h2><p class="muted">Choose how many teachers each room needs (minimum 3), enter the available teachers, then set each teacher’s room and role yourself.</p><label for="manualDutyDate">Exam date</label><input id="manualDutyDate" type="date"><label for="manualTeacherNames">Teacher names (one per line)</label><textarea id="manualTeacherNames" placeholder="Teacher A&#10;Teacher B&#10;Teacher C&#10;Teacher D&#10;Teacher E&#10;Teacher F&#10;Teacher G&#10;Teacher H&#10;Teacher I"></textarea><div class="exam-row"><div><label for="roomTeacherCount1">Room 1 teachers (min 3)</label><input id="roomTeacherCount1" type="number" min="3" value="3"></div><div><label for="roomTeacherCount2">Room 2 teachers (min 3)</label><input id="roomTeacherCount2" type="number" min="3" value="3"></div></div><div class="exam-row"><div><label for="roomTeacherCount3">Room 3 teachers (min 3)</label><input id="roomTeacherCount3" type="number" min="3" value="3"></div><div><label for="manualDutyExam">Exam / subject</label><input id="manualDutyExam" placeholder="e.g. Java CIA 2"></div></div><button id="buildTeacherChoices">Create editable assignment list</button><div id="manualTeacherChoices" class="exam-result">Your teacher assignment choices will appear here.</div><button id="saveManualTeacherDuties">Save these assignments</button><div id="manualTeacherStatus" class="subtle" role="status"></div>';grid.appendChild(card);const css=document.createElement('style');css.textContent='#manualTeacherChoices .teacher-choice{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(95px,.7fr) minmax(150px,1fr);gap:8px;align-items:center;margin:8px 0;padding:8px;border:1px solid var(--line);border-radius:9px}#manualTeacherChoices select{width:100%;min-width:0;border:1px solid var(--line);border-radius:8px;padding:9px;background:var(--bg);color:var(--ink);font:inherit}@media(max-width:600px){#manualTeacherChoices .teacher-choice{grid-template-columns:1fr}}';document.head.appendChild(css);let choices=[];function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function build(){let names=$('manualTeacherNames').value.split(/\r?\n/).map(n=>n.trim()).filter(Boolean);let counts=[1,2,3].map(n=>Number($('roomTeacherCount'+n).value));if(counts.some(n=>!Number.isInteger(n)||n<3)){$('manualTeacherStatus').textContent='Har room mein kam se kam 3 teachers hone chahiye.';return}let required=counts.reduce((a,b)=>a+b,0);if(names.length<required){$('manualTeacherStatus').textContent='Required '+required+' teachers hain, lekin aapne '+names.length+' naam diye. Aur names add karein ya room counts kam karein (minimum 3 each).';return}if(new Set(names.map(n=>n.toLowerCase())).size!==names.length){$('manualTeacherStatus').textContent='Duplicate teacher names remove karke dobara try karein.';return}choices=names.map((name,i)=>{let room=i<counts[0]?1:i<counts[0]+counts[1]?2:i<required?3:((i-required)%3)+1;let role=i<required?'Room invigilator':'Relief invigilator';return{name,room,role}});$('manualTeacherChoices').innerHTML=choices.map((t,i)=>'<div class="teacher-choice"><strong>'+escapeHtml(t.name)+'</strong><select aria-label="Room for '+escapeHtml(t.name)+'" data-teacher-room="'+i+'"><option value="1" '+(t.room===1?'selected':'')+'>Room 1</option><option value="2" '+(t.room===2?'selected':'')+'>Room 2</option><option value="3" '+(t.room===3?'selected':'')+'>Room 3</option></select><select aria-label="Role for '+escapeHtml(t.name)+'" data-teacher-role="'+i+'"><option '+(t.role==='Room invigilator'?'selected':'')+'>Room invigilator</option><option '+(t.role==='Relief invigilator'?'selected':'')+'>Relief invigilator</option><option>Lead invigilator</option></select></div>').join('');$('manualTeacherStatus').textContent='Assignment list ready. Aap har teacher ka room aur role change kar sakte hain.'}function save(){if(!choices.length){$('manualTeacherStatus').textContent='Pehle Create editable assignment list par click karein.';return}let counts=[1,2,3].map(n=>Number($('roomTeacherCount'+n).value));let saved=choices.map((t,i)=>({...t,room:Number($('[data-teacher-room="'+i+'"]').value),role:$('[data-teacher-role="'+i+'"]').value}));let roomCounts=[1,2,3].map(n=>saved.filter(t=>t.room===n).length);if(roomCounts.some(n=>n<3)){$('manualTeacherStatus').textContent='Save nahi hua: har room mein kam se kam 3 teachers assign karein. Current count: Room 1 '+roomCounts[0]+', Room 2 '+roomCounts[1]+', Room 3 '+roomCounts[2]+'.';return}let date=$('manualDutyDate').value;if(!date){$('manualTeacherStatus').textContent='Exam date select karein.';return}let subject=$('manualDutyExam').value.trim();let examKey=date+'|'+(subject||'exam duty').toLowerCase();let all={};try{all=JSON.parse(localStorage.getItem('bosscoder-exam-teacher-duties-v1')||'{}')}catch{}all[examKey]=saved;localStorage.setItem('bosscoder-exam-teacher-duties-v1',JSON.stringify(all));localStorage.setItem('bosscoder-invigilators-v1',JSON.stringify(Object.fromEntries(saved.map(t=>[t.name.toLowerCase(),{room:t.room,role:t.role,date,subject:subject||'Exam duty'}]))));$('manualTeacherStatus').textContent='Saved! Room 1: '+roomCounts[0]+' teachers, Room 2: '+roomCounts[1]+', Room 3: '+roomCounts[2]+'. '+saved.filter(t=>t.role==='Relief invigilator').length+' relief invigilator(s).';if($('teacherDutyResult'))$('teacherDutyResult').innerHTML=saved.map(t=>'<p><strong>'+escapeHtml(t.name)+'</strong> — Room '+t.room+' · '+escapeHtml(t.role)+'</p>').join('');if($('invCheck'))$('invCheck').onclick=()=>{let name=$('invName').value.trim();if(!name){$('invAnswer').textContent='Enter your full name to check your duty.';return}let found=saved.concat(Object.values(all).flat()).filter(t=>t.name&&t.name.trim().toLowerCase()===name.toLowerCase());$('invAnswer').innerHTML=found.length?'<strong>'+escapeHtml(name)+'</strong>'+found.map(t=>'<p><b>Exam:</b> '+escapeHtml(t.subject||examKey)+'<br><b>Room:</b> Room '+t.room+'<br><b>Duty:</b> '+escapeHtml(t.role)+'</p><p>Verify IDs, mark attendance, maintain exam-room discipline, and report incidents.</p>').join(''):'No assignment found for this name. Ask the exam administrator to allocate your duty.'}}$('buildTeacherChoices').onclick=build;$('saveManualTeacherDuties').onclick=save})();
+</script>
+<script>
+/* Student-facing read-only view plus a clearly labelled demo university console. */
+(()=>{const $=id=>document.getElementById(id);if(!$('lookup'))return;
+const css=document.createElement('style');css.textContent='.university-only{display:none!important}.university-mode .university-only{display:block!important}.university-mode .opsgrid .ops-card,.university-mode .examgrid .exam-card{display:block}.access-banner{display:flex;justify-content:flex-end;gap:8px;margin:12px 0}.quote-card{margin-top:16px;padding:18px;border:1px solid var(--line);border-radius:16px;background:var(--soft)}.quote-card blockquote{font-size:18px;font-weight:650;margin:0}.quote-card .muted{margin-top:8px}.location-box{margin-top:10px;padding:12px;border-radius:10px;background:var(--soft)}.location-box a{color:var(--accent)}';document.head.appendChild(css);
+const header=document.querySelector('header');const banner=document.createElement('div');banner.className='access-banner';banner.innerHTML='<button id="universityLoginButton">University staff login</button>';header.appendChild(banner);
+const adminPassword='UNI-ADMIN-2026';let isAdmin=false;
+const adminIds=['studentRecords','retentionArea'];adminIds.forEach(id=>{let el=$(id);if(el)el.classList.add('university-only')});
+const panelFor=id=>$(id)?.closest('.panel,.exam-card,.ops-card,.account-panel');
+['newRoll','newName','newSection','add','cap1','cap2','cap3','reassign','bulk','import','export','reset','filter','refresh','editRoll','editName','editSection','editSave','retentionDays','applyRetention','clearUniversityData','dutyDate','teachersAvailable','allocateTeachers','examDate','examSubject','examStart','examEnd','examInstructions','saveExam','manualDutyDate','manualTeacherNames','roomTeacherCount1','roomTeacherCount2','roomTeacherCount3','manualDutyExam','buildTeacherChoices','saveManualTeacherDuties'].forEach(id=>{const p=panelFor(id);if(p)p.classList.add('university-only')});
+const ops=document.querySelector('.opsgrid');if(ops){ops.querySelectorAll('.ops-card').forEach(card=>{if(card.querySelector('#invName'))card.style.display='none';if(card.querySelector('#editRoll'))card.classList.add('university-only')})}
+const examGrid=document.querySelector('.examgrid');if(examGrid){examGrid.querySelectorAll('.exam-card').forEach(card=>{if(card.querySelector('#saveExam')||card.querySelector('#allocateTeachers')||card.querySelector('#examList')||card.querySelector('#manualTeacherNames'))card.classList.add('university-only')})}
+const nav=document.getElementById('mainNav');if(nav){nav.querySelectorAll('a').forEach(a=>{if((a.getAttribute('href')||'').includes('invigilatorArea')||(a.getAttribute('href')||'').includes('studentRecords'))a.style.display='none'})}
+const lookupPanel=$('lookup').closest('.panel');if(lookupPanel){const title=lookupPanel.querySelector('h2');if(title)title.textContent='Student seat & room lookup';$('lookup').placeholder='Enter your exact roll number';const note=lookupPanel.querySelector('.note');if(note)note.textContent='Students can only view their own published allocation using their roll number.'}
+const originalLookup=window.lookup;window.lookup=()=>{const q=$('lookup').value.trim();const el=$('result');el.style.display='block';if(!q){el.textContent='Please enter your roll number.';return}const list=(()=>{try{return JSON.parse(localStorage.getItem('bosscoder-room-finder-v1')||'[]')}catch{return []}})();const s=list.find(x=>String(x.roll)===q);if(!s){el.innerHTML='<strong>Roll number not found.</strong><p>Please check the number or contact the university exam office.</p>';return}const exams=(()=>{try{return JSON.parse(localStorage.getItem('bosscoder-exam-schedules-v1')||'[]')}catch{return []}})();const locs=(()=>{try{return JSON.parse(localStorage.getItem('bosscoder-room-locations-v1')||'{}')}catch{return {}}})();const current=exams.filter(e=>e.date>=(new Date()).toISOString().slice(0,10));const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));let detail='';if(current.length){detail=current.map(e=>{const ordered=[...list].sort((a,b)=>String(a.roll).localeCompare(String(b.roll)));const idx=ordered.findIndex(x=>x.roll===s.roll);const offset=Math.abs((e.date+e.subject).split('').reduce((n,c)=>n+c.charCodeAt(0),0))%Math.max(1,ordered.length);let n=(idx+offset)%Math.max(1,ordered.length),caps=[1,2,3].map(i=>Number(document.getElementById('cap'+i)?.value)||110),room=1,seat=n+1;for(let i=0;i<3;i++){if(seat<=caps[i]){room=i+1;break}seat-=caps[i];room=i+2}const loc=locs[room]||{};return '<div class="location-box"><strong>'+esc(e.subject)+'</strong><br>Exam date: '+esc(e.date)+' · '+esc(e.start||'')+'–'+esc(e.end||'')+'<br>Room: '+(room<=3?'Room '+room:'Not assigned')+' · Seat: '+(room<=3?seat:'Not assigned')+'<br><strong>Building:</strong> '+esc(loc.building||'Ask the university exam office')+'<br><strong>Location / floor:</strong> '+esc(loc.location||'Not published yet')+'<br><strong>Route instructions:</strong> '+esc(loc.route||'Follow campus signboards and exam staff instructions.')+(loc.map?'<br><a href="'+esc(loc.map)+'" target="_blank" rel="noopener">Open location map</a>':'')+'</div>'}).join('')}else{const room=s.room,loc=locs[room]||{};detail='<div class="location-box"><strong>Assigned room:</strong> '+(s.room?'Room '+s.room:'Not assigned')+' · <strong>Seat:</strong> '+(s.seat||'Not assigned')+'<br><strong>Building:</strong> '+esc(loc.building||'Ask the university exam office')+'<br><strong>Location / floor:</strong> '+esc(loc.location||'Not published yet')+'<br><strong>Route:</strong> '+esc(loc.route||'Follow campus signboards and exam staff instructions.')+(loc.map?'<br><a href="'+esc(loc.map)+'" target="_blank" rel="noopener">Open location map</a>':'')+'</div>'}el.innerHTML='<strong>Seat information</strong><div class="pills"><span class="pill">Roll: '+esc(s.roll)+'</span><span class="pill">Section '+esc(s.section)+'</span></div>'+detail+'<p><strong>Exam rules:</strong> Sit only in your officially allotted seat. Do not change or shuffle seats yourself. Follow invigilator instructions; unauthorized seat changes may lead to action under university examination rules.</p>'};
+$('find').onclick=()=>window.lookup();$('lookup').addEventListener('keydown',e=>{if(e.key==='Enter')window.lookup()});
+const locationCard=document.createElement('section');locationCard.className='exam-card university-only';locationCard.id='roomLocationAdmin';locationCard.innerHTML='<h2>Room buildings & directions</h2><p class="muted">University staff: add the real building, floor/location, route directions, and optional map link for each room.</p>'+[1,2,3].map(n=>'<div class="location-box"><strong>Room '+n+'</strong><label>Building name</label><input id="locBuilding'+n+'" placeholder="e.g. Academic Block A"><label>Floor / location</label><input id="locLocation'+n+'" placeholder="e.g. 2nd floor, Room 204"><label>Directions from campus gate</label><input id="locRoute'+n+'" placeholder="e.g. Walk straight, take stairs left"><label>Optional map URL</label><input id="locMap'+n+'" placeholder="https://maps.google.com/..."></div>').join('')+'<button id="saveRoomLocations">Save room locations</button><div class="subtle" id="locationAdminStatus"></div>';if(examGrid)examGrid.appendChild(locationCard);
+function readLocations(){try{return JSON.parse(localStorage.getItem('bosscoder-room-locations-v1')||'{}')}catch{return {}}}function fillLocations(){const data=readLocations();[1,2,3].forEach(n=>{let x=data[n]||{};['Building','Location','Route','Map'].forEach((k,i)=>{const input=$('loc'+k+n);if(input)input.value=x[['building','location','route','map'][i]]||''})})}fillLocations();$('saveRoomLocations').onclick=()=>{let data={};[1,2,3].forEach(n=>data[n]={building:$('locBuilding'+n).value.trim(),location:$('locLocation'+n).value.trim(),route:$('locRoute'+n).value.trim(),map:$('locMap'+n).value.trim()});localStorage.setItem('bosscoder-room-locations-v1',JSON.stringify(data));$('locationAdminStatus').textContent='Room location details saved in this browser.'};
+const quote=document.createElement('section');quote.className='quote-card';quote.innerHTML='<blockquote id="studentQuote">“Small progress every day adds up to big results.”</blockquote><p class="muted">Keep going. Your effort today is building your future.</p><button class="secondary" id="nextQuote">Another motivation quote</button>';const quotes=['“Small progress every day adds up to big results.”','“You do not have to be perfect; you have to keep learning.”','“One question at a time. One concept at a time. Keep moving.”','“Your preparation matters more than your fear.”','“Consistency beats last-minute panic.”','“Mistakes are feedback. Learn, improve, and try again.”'];let qi=0;$('nextQuote');quote.querySelector('#nextQuote').onclick=()=>{qi=(qi+1)%quotes.length;quote.querySelector('#studentQuote').textContent=quotes[qi]};document.querySelector('main.wrap').appendChild(quote);
+function setAdminMode(on){isAdmin=on;document.body.classList.toggle('university-mode',on);document.querySelectorAll('.university-only').forEach(el=>{el.style.display=on?'':'none'});banner.innerHTML=on?'<span class="pill">University editing mode (demo)</span><button id="universityLogoutButton" class="secondary">Exit university mode</button>':'<button id="universityLoginButton">University staff login</button>';if(on){$('universityLogoutButton').onclick=()=>setAdminMode(false);fillLocations()}else{$('universityLoginButton').onclick=()=>{const pass=prompt('Enter university demo passcode:');if(pass===adminPassword)setAdminMode(true);else alert('Access not granted.')}}}
+$('universityLoginButton').onclick=()=>{const pass=prompt('Enter university demo passcode (demo only):');if(pass===adminPassword)setAdminMode(true);else alert('Access not granted.')};
+setAdminMode(false);
+})();
+</script>
+<script>
+(()=>{const $=id=>document.getElementById(id);if(!$('lookup'))return;const key='bosscoder-university-demo-admin';let admin=false;
+const style=document.createElement('style');style.textContent='.admin-locked{display:none!important}.quote-card{margin:16px 0;padding:18px;border:1px solid var(--line);border-radius:16px;background:var(--soft)}.quote-card blockquote{font-size:18px;font-weight:650;margin:0}.location-admin{margin-top:16px;padding:18px;border:1px solid var(--line);border-radius:16px;background:var(--panel)}.location-admin input{display:block;width:100%;padding:10px;margin:6px 0 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink)}';document.head.appendChild(style);
+const header=document.querySelector('header'),login=document.createElement('button');login.textContent='University staff login';login.style.marginTop='14px';header.appendChild(login);
+const adminElements=[];function lock(el){if(el&&!adminElements.includes(el)){el.classList.add('admin-locked');adminElements.push(el)}}['studentRecords','retentionArea'].forEach(id=>lock($(id)));
+['newRoll','newName','newSection','add','cap1','cap2','cap3','reassign','bulk','import','export','reset','filter','refresh','editRoll','editName','editSection','editSave','retentionDays','applyRetention','clearUniversityData','dutyDate','teachersAvailable','allocateTeachers','examDate','examSubject','examStart','examEnd','examInstructions','saveExam','manualDutyDate','manualTeacherNames','roomTeacherCount1','roomTeacherCount2','roomTeacherCount3','manualDutyExam','buildTeacherChoices','saveManualTeacherDuties'].forEach(id=>{let el=$(id);if(el)lock(el.closest('.panel,.exam-card,.ops-card,.account-panel'))});
+document.querySelectorAll('.ops-card').forEach(el=>{if(el.querySelector('#invName'))el.style.display='none';if(el.querySelector('#editRoll'))lock(el)});
+document.querySelectorAll('.exam-card').forEach(el=>{if(el.querySelector('#saveExam')||el.querySelector('#allocateTeachers')||el.querySelector('#examList')||el.querySelector('#manualTeacherNames'))lock(el)});
+const nav=$('mainNav');if(nav)nav.querySelectorAll('a').forEach(a=>{if((a.getAttribute('href')||'').includes('invigilatorArea')||(a.getAttribute('href')||'').includes('studentRecords'))a.style.display='none'});
+$('lookup').placeholder='Enter your exact roll number';const lookupPanel=$('lookup').closest('.panel');if(lookupPanel&&lookupPanel.querySelector('h2'))lookupPanel.querySelector('h2').textContent='Student seat & room lookup';
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+function getJson(k,f){try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(f))}catch{return f}}
+function showSeat(){const roll=$('lookup').value.trim(),out=$('result');out.style.display='block';if(!roll){out.textContent='Please enter your roll number.';return}const list=getJson('bosscoder-room-finder-v1',[]),s=list.find(x=>String(x.roll)===roll);if(!s){out.textContent='Roll number not found. Please check it or contact the university exam office.';return}const locs=getJson('bosscoder-room-locations-v1',{}),exams=getJson('bosscoder-exam-schedules-v1',[]),today=new Date().toISOString().slice(0,10),upcoming=exams.filter(e=>e.date>=today);let html='<strong>Seat information</strong><div class="pills"><span class="pill">Roll: '+esc(s.roll)+'</span><span class="pill">Section '+esc(s.section)+'</span></div>';if(upcoming.length){html+=upcoming.map(e=>{const ordered=[...list].sort((a,b)=>String(a.roll).localeCompare(String(b.roll))),idx=ordered.findIndex(x=>x.roll===s.roll),offset=(e.date+e.subject).split('').reduce((n,c)=>n+c.charCodeAt(0),0)%Math.max(1,ordered.length);let seat=(idx+offset)%Math.max(1,ordered.length)+1,room=1,caps=[1,2,3].map(n=>Number($('cap'+n)?.value)||110);for(let i=0;i<3;i++){if(seat<=caps[i]){room=i+1;break}seat-=caps[i];room=i+2}const loc=locs[room]||{};return '<div class="location-box"><strong>'+esc(e.subject)+'</strong><br>Date: '+esc(e.date)+' · '+esc(e.start||'')+'–'+esc(e.end||'')+'<br>Room '+(room<=3?room:'Not assigned')+' · Seat '+(room<=3?seat:'Not assigned')+'<br><b>Building:</b> '+esc(loc.building||'Not published')+'<br><b>Floor / location:</b> '+esc(loc.location||'Not published')+'<br><b>Directions:</b> '+esc(loc.route||'Follow campus signboards and exam staff instructions.')+(loc.map?'<br><a href="'+esc(loc.map)+'" target="_blank" rel="noopener">Open map</a>':'')+'</div>'}).join('')}else{const loc=locs[s.room]||{};html+='<div class="location-box"><b>Room:</b> '+(s.room||'Not assigned')+' · <b>Seat:</b> '+(s.seat||'Not assigned')+'<br><b>Building:</b> '+esc(loc.building||'Not published')+'<br><b>Floor / location:</b> '+esc(loc.location||'Not published')+'<br><b>Directions:</b> '+esc(loc.route||'Follow campus signboards and exam staff instructions.')+(loc.map?'<br><a href="'+esc(loc.map)+'" target="_blank" rel="noopener">Open map</a>':'')+'</div>'}html+='<p><b>Exam instructions:</b> Sit only in your officially allotted seat. Do not change or shuffle seats yourself. Follow invigilator instructions. Unauthorized seat changes may lead to action under university examination rules.</p>';out.innerHTML=html}
+$('find').onclick=showSeat;$('lookup').addEventListener('keydown',e=>{if(e.key==='Enter')showSeat()});
+const grid=document.querySelector('.examgrid'),locCard=document.createElement('section');locCard.className='location-admin admin-locked';locCard.innerHTML='<h2>Room buildings & directions</h2><p class="muted">University staff: enter verified building names and directions for each room.</p>'+[1,2,3].map(n=>'<div class="location-box"><b>Room '+n+'</b><label>Building name</label><input id="roomBuilding'+n+'" placeholder="Building name"><label>Floor / location</label><input id="roomLocation'+n+'" placeholder="Floor and room location"><label>Directions from campus gate</label><input id="roomRoute'+n+'" placeholder="Step-by-step directions"><label>Optional map link</label><input id="roomMap'+n+'" placeholder="https://..."></div>').join('')+'<button id="saveRoomDirections">Save room directions</button><p id="roomDirectionStatus" class="muted"></p>';if(grid)grid.appendChild(locCard);adminElements.push(locCard);
+function loadLoc(){const l=getJson('bosscoder-room-locations-v1',{});[1,2,3].forEach(n=>{const x=l[n]||{};[['building','roomBuilding'],['location','roomLocation'],['route','roomRoute'],['map','roomMap']].forEach(pair=>{const el=$(pair[1]+n);if(el)el.value=x[pair[0]]||''})})}function saveLoc(){const l={};[1,2,3].forEach(n=>l[n]={building:$('roomBuilding'+n).value.trim(),location:$('roomLocation'+n).value.trim(),route:$('roomRoute'+n).value.trim(),map:$('roomMap'+n).value.trim()});localStorage.setItem('bosscoder-room-locations-v1',JSON.stringify(l));$('roomDirectionStatus').textContent='Saved locally in this browser.'} $('saveRoomDirections').onclick=saveLoc;
+const quote=document.createElement('section');quote.className='quote-card';quote.innerHTML='<blockquote id="motivationText">“Small progress every day adds up to big results.”</blockquote><p class="muted">Keep learning, stay consistent, and trust your preparation.</p><button class="secondary" id="motivationNext">Another quote</button>';const quotes=['“Small progress every day adds up to big results.”','“You do not have to be perfect; you have to keep learning.”','“One question at a time. One concept at a time. Keep moving.”','“Consistency beats last-minute panic.”','“Mistakes are feedback. Learn, improve, and try again.”'];let qi=0;quote.querySelector('#motivationNext').onclick=()=>{qi=(qi+1)%quotes.length;$('motivationText').textContent=quotes[qi]};document.querySelector('main.wrap').appendChild(quote);
+function setAdmin(on){admin=on;adminElements.forEach(el=>el.classList.toggle('admin-locked',!on));login.textContent=on?'Exit university mode':'University staff login';if(on)loadLoc();login.onclick=()=>{if(admin){setAdmin(false);return}const p=prompt('Enter university demo passcode:');if(p==='UNI-ADMIN-2026')setAdmin(true);else alert('Access not granted.')}}login.onclick=()=>{const p=prompt('Enter university demo passcode:');if(p==='UNI-ADMIN-2026')setAdmin(true);else alert('Access not granted.')};setAdmin(false);
+})();
+</script>
+<script>
+/* Remove the AI assistant and personalize the student header and seat lookup. */
+(()=>{const $=id=>document.getElementById(id);const ai=[...document.querySelectorAll('.ops-card')].find(el=>el.querySelector('h2')?.textContent.toLowerCase().includes('ai exam assistant'));if(ai)ai.remove();const header=document.querySelector('header');if(!header||!$('studentEmailLogin')||!$('emailLoginButton'))return;let welcome=document.getElementById('studentWelcome');if(!welcome){welcome=document.createElement('p');welcome.id='studentWelcome';welcome.style.cssText='font-size:18px;font-weight:700;margin-top:12px';header.appendChild(welcome)}const SESSION='bosscoder-student-email-session-v2';const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function records(){try{return JSON.parse(localStorage.getItem('bosscoder-room-finder-v1')||'[]')}catch{return []}}function getSession(){try{return JSON.parse(localStorage.getItem(SESSION)||'null')}catch{return null}}function updateWelcome(){const s=getSession();welcome.textContent=s?'Welcome, '+s.name+'!':'Welcome to Student Room Finder';if($('emailLoginStatus'))$('emailLoginStatus').textContent=s?'Signed in as '+s.name+' ('+s.email+'). Demo sign-in; email identity is not verified.':'Not signed in.';if($('emailLogoutButton'))$('emailLogoutButton').style.display=s?'inline-block':'none'}$('emailLoginButton').onclick=()=>{const email=$('studentEmailLogin').value.trim().toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){$('emailLoginStatus').textContent='Enter a valid college email address.';return}const roll=prompt('Enter your roll number to link this email to your student record:');if(!roll)return;const student=records().find(s=>String(s.roll)===roll.trim());if(!student){$('emailLoginStatus').textContent='Roll number not found. Please check it with the university.';return}localStorage.setItem(SESSION,JSON.stringify({email,roll:student.roll,name:student.name}));updateWelcome()};if($('emailLogoutButton'))$('emailLogoutButton').onclick=()=>{localStorage.removeItem(SESSION);updateWelcome()};const oldFind=$('find')?.onclick;function showNamedResult(){if(typeof oldFind==='function')oldFind();const roll=$('lookup').value.trim(),student=records().find(s=>String(s.roll)===roll),out=$('result');if(!student||!out||out.style.display==='none')return;const heading=document.createElement('p');heading.innerHTML='<strong>Student name: '+esc(student.name)+'</strong>';out.prepend(heading)}if($('find'))$('find').onclick=showNamedResult;if($('lookup'))$('lookup').addEventListener('keydown',e=>{if(e.key==='Enter')setTimeout(showNamedResult,0)});updateWelcome()})();
+</script>
+</body></html>
